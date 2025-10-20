@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyline A3 - Demonstração</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 72px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 42px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .subtitle {
+            font-size: 20px;
+            color: #718096;
+            margin-bottom: 40px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+            text-align: left;
+        }
+        
+        .feature {
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+        
+        .feature h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .feature p {
+            color: #718096;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 18px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 30px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .info-box {
+            background: #e6f3ff;
+            border-left: 4px solid #4facfe;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+        
+        .info-box h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #4a5568;
+            margin: 5px 0;
+        }
+        
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        
+        .tech-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #d4edda;
+            color: #155724;
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin: 20px 0;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #28a745;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .screenshots {
+            margin: 40px 0;
+            text-align: center;
+        }
+        
+        .screenshots h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        
+        .screenshot-placeholder {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 60px 40px;
+            color: #718096;
+            font-size: 16px;
+            border: 2px dashed #cbd5e0;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 32px;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🌟</div>
+        <h1>Sistema Skyline A3</h1>
+        <p class="subtitle">Automação Inteligente de Energia com IoT</p>
+        
+        <div class="status">
+            <span class="status-dot"></span>
+            Sistema Pronto para Uso
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">💻</div>
+                <h3>Gerenciamento de Dispositivos</h3>
+                <p>Controle total sobre computadores: ligar, desligar e monitorar em tempo real via Wake-on-LAN.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🚪</div>
+                <h3>Integração com Catracas</h3>
+                <p>Automação completa: entrada liga PC, saída desliga. Via MQTT em tempo real.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3>Dashboard Interativo</h3>
+                <p>Interface moderna e responsiva com estatísticas, gráficos e visualização em tempo real.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">📝</div>
+                <h3>Logs Detalhados</h3>
+                <p>Histórico completo de acessos com filtros avançados por data, usuário e ação.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h3>Seguro e Confiável</h3>
+                <p>Autenticação JWT, banco de dados SQLite com WAL mode, logs completos.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Alta Performance</h3>
+                <p>Auto-refresh configurável, API RESTful eficiente, operações assíncronas.</p>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h4>🚀 Como Iniciar</h4>
+            <p><strong>1.</strong> Execute: <code>python backend\app.py</code></p>
+            <p><strong>2.</strong> Acesse: <code>http://localhost:5000</code></p>
+            <p><strong>3.</strong> Faça login com qualquer usuário (senha mín. 3 caracteres)</p>
+            <p><strong>4.</strong> Comece a gerenciar seus dispositivos!</p>
+        </div>
+        
+        <div class="screenshots">
+            <h3>✨ Interface Moderna e Intuitiva</h3>
+            <div class="screenshot-placeholder">
+                <p>🎨 Design profissional com gradientes</p>
+                <p>📱 Totalmente responsivo</p>
+                <p>🌈 Paleta de cores harmoniosa</p>
+                <p>⚡ Animações suaves</p>
+            </div>
+        </div>
+        
+        <h3 style="margin-top: 40px; color: #2d3748;">Tecnologias Utilizadas</h3>
+        <div class="tech-stack">
+            <span class="tech-badge">Python 3</span>
+            <span class="tech-badge">Flask</span>
+            <span class="tech-badge">SQLite</span>
+            <span class="tech-badge">MQTT</span>
+            <span class="tech-badge">JWT</span>
+            <span class="tech-badge">HTML5</span>
+            <span class="tech-badge">CSS3</span>
+            <span class="tech-badge">JavaScript ES6+</span>
+            <span class="tech-badge">Wake-on-LAN</span>
+        </div>
+        
+        <a href="/" class="cta-button">🚀 Acessar Sistema</a>
+        
+        <p style="margin-top: 40px; color: #718096; font-size: 14px;">
+            Desenvolvido para automação inteligente de energia 💡
+        </p>
+    </div>
+</body>
+</html>

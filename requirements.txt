@@ -1,0 +1,6 @@
+Flask==2.3.3
+paho-mqtt==1.6.1
+paramiko==3.3.1
+Werkzeug==2.3.7
+requests>=2.31.0,<3
+Flask-JWT-Extended==4.6.0

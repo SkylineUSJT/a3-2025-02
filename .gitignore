@@ -1,0 +1,42 @@
+# .gitignore - Sistema IoT
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/*.log
+*.log
+
+# Configurações sensíveis
+config/local_config.json
+*.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# PsExec
+PsExec.exe
+*.exe

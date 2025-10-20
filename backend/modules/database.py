@@ -1,0 +1,313 @@
+"""
+Módulo de gerenciamento de banco de dados SQLite
+"""
+import sqlite3
+import json
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class Database:
+    def __init__(self, db_path='backend/database/iot_system.db'):
+        self.db_path = db_path
+        
+    def get_connection(self):
+        """Cria conexão com banco de dados"""
+        # Aumenta timeout para evitar 'database is locked' em concorrência
+        conn = sqlite3.connect(self.db_path, timeout=10, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        # Configurações para melhor concorrência
+        try:
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.execute('PRAGMA busy_timeout=5000')
+            conn.execute('PRAGMA synchronous=NORMAL')
+        except Exception:
+            # Ignorar falhas de PRAGMA em ambientes não suportados
+            pass
+        return conn
+    
+    def initialize(self):
+        """Inicializa tabelas do banco de dados"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # Tabela de dispositivos (computadores)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL UNIQUE,
+                hostname TEXT NOT NULL,
+                mac_address TEXT NOT NULL,
+                ip_address TEXT NOT NULL,
+                os_type TEXT DEFAULT 'windows',
+                credentials TEXT,
+                status TEXT DEFAULT 'offline',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Tabela de logs de acesso
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS access_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                access_type TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                device_action TEXT,
+                success INTEGER DEFAULT 1,
+                turnstile_id TEXT
+            )
+        ''')
+        
+        # Tabela de catracas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS turnstiles (
+                id TEXT PRIMARY KEY,
+                location TEXT,
+                status TEXT DEFAULT 'active',
+                last_access TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Tabela de configurações
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        logger.info("Banco de dados inicializado com sucesso")
+    
+    def add_device(self, user_id, hostname, mac_address, ip_address, os_type='windows', credentials=None):
+        """Adiciona novo dispositivo. Se já existir o mesmo user_id, retorna o id existente.
+        Sempre garante fechamento da conexão para evitar locks.
+        """
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            credentials_json = json.dumps(credentials) if credentials else None
+            # Tenta inserir; se já existir (UNIQUE), ignora
+            cursor.execute('''
+                INSERT OR IGNORE INTO devices (user_id, hostname, mac_address, ip_address, os_type, credentials)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, hostname, mac_address, ip_address, os_type, credentials_json))
+
+            if cursor.rowcount == 0:
+                # Já existia: buscar id existente
+                cursor.execute('SELECT id FROM devices WHERE user_id = ?', (user_id,))
+                row = cursor.fetchone()
+                device_id = row['id'] if row else None
+            else:
+                device_id = cursor.lastrowid
+
+            conn.commit()
+            return device_id
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+    def get_device_by_user(self, user_id):
+        """Busca dispositivo por ID do usuário"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM devices WHERE user_id = ?', (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            device = dict(row)
+            if device.get('credentials'):
+                device['credentials'] = json.loads(device['credentials'])
+            return device
+        return None
+    
+    def get_all_devices(self):
+        """Lista todos os dispositivos"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, user_id, hostname, mac_address, ip_address, os_type, status FROM devices')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [dict(row) for row in rows]
+    
+    def update_device_status(self, user_id, status):
+        """Atualiza status do dispositivo"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE devices SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        ''', (status, user_id))
+        
+        conn.commit()
+        conn.close()
+    
+    def log_access(self, user_id, access_type, device_action=None, success=True):
+        """Registra log de acesso"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO access_logs (user_id, access_type, device_action, success)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, access_type, device_action, 1 if success else 0))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_access_logs(self, limit=50):
+        """Busca logs de acesso"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, user_id, access_type as action, timestamp, success as status, turnstile_id
+            FROM access_logs 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        ''', (limit,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        logs = []
+        for row in rows:
+            log = dict(row)
+            # Converter success (1/0) para status (success/failure)
+            log['status'] = 'success' if log.get('status') == 1 else 'failure'
+            logs.append(log)
+        
+        return logs
+    
+    def get_device_by_id(self, device_id):
+        """Busca dispositivo por ID"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM devices WHERE id = ?', (device_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            device = dict(row)
+            if device.get('credentials'):
+                device['credentials'] = json.loads(device['credentials'])
+            return device
+        return None
+    
+    def delete_device(self, device_id):
+        """Exclui um dispositivo"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM devices WHERE id = ?', (device_id,))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_all_turnstiles(self):
+        """Lista todas as catracas"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM turnstiles')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [dict(row) for row in rows]
+    
+    def add_turnstile(self, turnstile_id, location=None):
+        """Adiciona nova catraca"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO turnstiles (id, location)
+                VALUES (?, ?)
+            ''', (turnstile_id, location))
+            
+            conn.commit()
+            return turnstile_id
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+    def delete_turnstile(self, turnstile_id):
+        """Exclui uma catraca"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM turnstiles WHERE id = ?', (turnstile_id,))
+        
+        conn.commit()
+        conn.close()
+
+    def has_recent_access(self, user_id, access_type, window_seconds=3):
+        """Verifica se há log do mesmo tipo para o usuário dentro da janela de tempo.
+        Retorna True se encontrado, para evitar ações/logs duplicados.
+        """
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                '''
+                SELECT 1 FROM access_logs
+                WHERE user_id = ? AND access_type = ?
+                  AND timestamp >= datetime('now', ?)
+                LIMIT 1
+                ''',
+                (user_id, access_type, f'-{int(window_seconds)} seconds')
+            )
+            row = cursor.fetchone()
+            return row is not None
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+    def set_config(self, key, value):
+        """Define valor de configuração"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO config (key, value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        ''', (key, value))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_config(self, key, default=None):
+        """Busca valor de configuração"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT value FROM config WHERE key = ?', (key,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        return row['value'] if row else default
