@@ -45,10 +45,16 @@ class WakeOnLAN:
         Formato: 6 bytes FF + 16 repetições do MAC address
         """
         # Remove separadores do MAC address (: ou -)
-        mac = mac_address.replace(':', '').replace('-', '')
+        mac = mac_address.replace(':', '').replace('-', '').replace('.', '').upper()
         
         if len(mac) != 12:
             raise ValueError(f"Endereço MAC inválido: {mac_address}")
+        
+        # Valida se são apenas caracteres hexadecimais
+        try:
+            int(mac, 16)
+        except ValueError:
+            raise ValueError(f"Endereço MAC contém caracteres inválidos: {mac_address}")
         
         # Converte MAC para bytes
         mac_bytes = bytes.fromhex(mac)

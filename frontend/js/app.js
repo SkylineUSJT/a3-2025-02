@@ -38,7 +38,7 @@ function setupEventListeners() {
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('submit', handleLogout);
+        logoutBtn.addEventListener('click', handleLogout);
     }
 
     // Navegação

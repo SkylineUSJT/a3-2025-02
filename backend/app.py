@@ -24,10 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mqtt_client = MQTTClient()
-wol = WakeOnLAN()
-shutdown = RemoteShutdown()
-
 # Configurar caminho para o frontend
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
 
@@ -39,7 +35,9 @@ wol = WakeOnLAN()
 shutdown = RemoteShutdown()
 
 # JWT Config
-app.config['JWT_SECRET_KEY'] = 'change-me-in-production'
+# ATENÇÃO: Altere a chave secreta em produção! Use variável de ambiente:
+# export JWT_SECRET_KEY="sua-chave-super-secreta-aqui"
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'change-me-in-production-INSECURE')
 jwt = JWTManager(app)
 
 
@@ -70,6 +68,10 @@ def health_check():
 # --- Auth ---
 @app.route('/api/auth/login', methods=['POST'])
 def login():
+    """
+    Autenticação básica - APENAS PARA DESENVOLVIMENTO
+    TODO: Implementar autenticação real com banco de dados/LDAP em produção
+    """
     data = request.json or {}
     username = data.get('username')
     password = data.get('password')
