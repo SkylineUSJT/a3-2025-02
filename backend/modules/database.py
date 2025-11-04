@@ -82,6 +82,18 @@ class Database:
             )
         ''')
         
+        # Tabela de usuários do sistema
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                user_type TEXT NOT NULL DEFAULT 'usuario',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         logger.info("Banco de dados inicializado com sucesso")
@@ -311,3 +323,47 @@ class Database:
         conn.close()
         
         return row['value'] if row else default
+    
+    def get_user_by_username(self, username):
+        """Busca usuário por nome de usuário"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return dict(row)
+        return None
+    
+    def create_user(self, username, password, user_type='usuario'):
+        """Cria novo usuário"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO users (username, password, user_type)
+                VALUES (?, ?, ?)
+            ''', (username, password, user_type))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    
+    def get_all_users(self):
+        """Lista todos os usuários (sem senha)"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, username, user_type, created_at FROM users')
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [dict(row) for row in rows]

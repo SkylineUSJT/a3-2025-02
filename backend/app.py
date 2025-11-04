@@ -8,6 +8,15 @@ from flask_cors import CORS
 from datetime import datetime
 import logging
 import os
+import sys
+import hashlib
+from functools import wraps
+
+# Adiciona o diretório backend ao PYTHONPATH
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from modules.database import Database
 from modules.mqtt_client import MQTTClient
 from modules.wol import WakeOnLAN
@@ -42,10 +51,14 @@ jwt = JWTManager(app)
 
 
 @app.route('/')
-def serve_frontend():
-    """Serve a página inicial do frontend"""
-    return send_from_directory(FRONTEND_DIR, 'index.html')
+def serve_login():
+    """Serve a página de login"""
+    return send_from_directory(FRONTEND_DIR, 'login.html')
 
+@app.route('/dashboard')
+def serve_dashboard():
+    """Serve a página do dashboard"""
+    return send_from_directory(FRONTEND_DIR, 'dashboard.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
@@ -53,7 +66,8 @@ def serve_static(path):
     if os.path.exists(os.path.join(FRONTEND_DIR, path)):
         return send_from_directory(FRONTEND_DIR, path)
     else:
-        return send_from_directory(FRONTEND_DIR, 'index.html')
+        # Se não for arquivo estático, redireciona para login
+        return send_from_directory(FRONTEND_DIR, 'login.html')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -66,20 +80,59 @@ def health_check():
 
 
 # --- Auth ---
+def hash_password(password):
+    """Hash simples de senha (para desenvolvimento)"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password, hashed):
+    """Verifica senha"""
+    return hash_password(password) == hashed
+
+def admin_required(f):
+    """Decorator para rotas que requerem permissão de admin"""
+    @wraps(f)
+    @jwt_required()
+    def decorated_function(*args, **kwargs):
+        current_user = get_jwt_identity()
+        user = db.get_user_by_username(current_user)
+        if not user or user.get('user_type') != 'admin':
+            return jsonify({'error': 'Acesso negado. Apenas administradores.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    """
-    Autenticação básica - APENAS PARA DESENVOLVIMENTO
-    TODO: Implementar autenticação real com banco de dados/LDAP em produção
-    """
+    """Autenticação com validação de usuário e tipo"""
     data = request.json or {}
     username = data.get('username')
     password = data.get('password')
-    # Placeholder: validacao simples; troque por consulta ao DB/LDAP
-    if username and password and len(password) >= 3:
-        token = create_access_token(identity=username)
-        return jsonify({ 'access_token': token, 'user': { 'username': username } })
-    return jsonify({ 'error': 'Credenciais inválidas' }), 401
+    
+    if not username or not password:
+        return jsonify({'error': 'Usuário e senha são obrigatórios'}), 400
+    
+    # Buscar usuário no banco
+    user = db.get_user_by_username(username)
+    
+    if not user:
+        return jsonify({'error': 'Credenciais inválidas'}), 401
+    
+    # Verificar senha
+    if not verify_password(password, user['password']):
+        return jsonify({'error': 'Credenciais inválidas'}), 401
+    
+    # Criar token JWT com informações do usuário
+    token = create_access_token(
+        identity=username,
+        additional_claims={'user_type': user['user_type']}
+    )
+    
+    return jsonify({
+        'access_token': token,
+        'user': {
+            'username': user['username'],
+            'user_type': user['user_type']
+        }
+    }), 200
 
 
 @app.route('/api/devices', methods=['GET'])
@@ -318,9 +371,101 @@ def delete_turnstile(turnstile_id):
         return jsonify({'error': str(e)}), 500
 
 
+def init_default_users():
+    """Inicializa usuários padrão se não existirem"""
+    admin_user = db.get_user_by_username('admin')
+    if not admin_user:
+        admin_password = hash_password('admin123')
+        db.create_user('admin', admin_password, 'admin')
+        logger.info("Usuário admin criado (senha: admin123)")
+    
+    usuario_user = db.get_user_by_username('usuario')
+    if not usuario_user:
+        usuario_password = hash_password('usuario123')
+        db.create_user('usuario', usuario_password, 'usuario')
+        logger.info("Usuário padrão criado (senha: usuario123)")
+
+def init_fake_data():
+    """Inicializa dados fake para demonstração"""
+    import random
+    from datetime import timedelta
+    
+    # Verificar se já existem dados
+    devices = db.get_all_devices()
+    if len(devices) > 0:
+        logger.info("Dados fake já existem, pulando inicialização")
+        return
+    
+    logger.info("Criando dados fake para demonstração...")
+    
+    # Criar dispositivos fake
+    fake_devices = [
+        {'user_id': 'funcionario001', 'hostname': 'PC-OFICINA-01', 'mac_address': '00:1B:44:11:3A:B7', 'ip_address': '192.168.1.101', 'os_type': 'windows'},
+        {'user_id': 'funcionario002', 'hostname': 'PC-ADMIN-02', 'mac_address': '00:1B:44:11:3A:B8', 'ip_address': '192.168.1.102', 'os_type': 'windows'},
+        {'user_id': 'funcionario003', 'hostname': 'PC-RECEPCAO', 'mac_address': '00:1B:44:11:3A:B9', 'ip_address': '192.168.1.103', 'os_type': 'windows'},
+        {'user_id': 'funcionario004', 'hostname': 'PC-SERV-01', 'mac_address': '00:1B:44:11:3A:BA', 'ip_address': '192.168.1.104', 'os_type': 'linux'},
+        {'user_id': 'funcionario005', 'hostname': 'PC-DEV-01', 'mac_address': '00:1B:44:11:3A:BB', 'ip_address': '192.168.1.105', 'os_type': 'windows'},
+    ]
+    
+    for device in fake_devices:
+        try:
+            db.add_device(
+                user_id=device['user_id'],
+                hostname=device['hostname'],
+                mac_address=device['mac_address'],
+                ip_address=device['ip_address'],
+                os_type=device['os_type']
+            )
+        except Exception as e:
+            logger.warning(f"Erro ao criar dispositivo fake {device['hostname']}: {e}")
+    
+    # Criar catracas fake
+    fake_turnstiles = [
+        {'turnstile_id': 'CAT001', 'location': 'Entrada Principal'},
+        {'turnstile_id': 'CAT002', 'location': 'Entrada Secundária'},
+        {'turnstile_id': 'CAT003', 'location': 'Estacionamento'},
+    ]
+    
+    for turnstile in fake_turnstiles:
+        try:
+            db.add_turnstile(turnstile['turnstile_id'], turnstile['location'])
+        except Exception as e:
+            logger.warning(f"Erro ao criar catraca fake {turnstile['turnstile_id']}: {e}")
+    
+    # Criar logs fake (últimos 7 dias)
+    now = datetime.now()
+    for day in range(7):
+        date = now - timedelta(days=day)
+        for hour in range(8, 19):  # Horário comercial
+            for minute in [0, 30]:  # A cada meia hora
+                timestamp = date.replace(hour=hour, minute=minute, second=random.randint(0, 59))
+                user_id = random.choice(['funcionario001', 'funcionario002', 'funcionario003', 'funcionario004', 'funcionario005'])
+                access_type = random.choice(['entry', 'exit'])
+                turnstile_id = random.choice(['CAT001', 'CAT002', 'CAT003'])
+                
+                try:
+                    conn = db.get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO access_logs (user_id, access_type, timestamp, turnstile_id, success)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (user_id, access_type, timestamp.isoformat(), turnstile_id, 1))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    logger.warning(f"Erro ao criar log fake: {e}")
+    
+    logger.info("Dados fake criados com sucesso")
+
 if __name__ == '__main__':
     # Inicializa banco de dados
     db.initialize()
+    
+    # Inicializa usuários padrão
+    init_default_users()
+    
+    # Inicializa dados fake
+    init_fake_data()
     
     # Inicia cliente MQTT
     mqtt_client.start()
