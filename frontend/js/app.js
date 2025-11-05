@@ -14,10 +14,16 @@ function initializeApp() {
     authToken = localStorage.getItem('authToken');
     currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
-    if (authToken && currentUser) {
-        showDashboard();
-    } else {
-        showLogin();
+    // Se estamos na página de dashboard, verificar autenticação
+    if (window.location.pathname.includes('dashboard')) {
+        if (!authToken || !currentUser) {
+            window.location.href = '/';
+            return;
+        }
+        // Atualizar informações do usuário
+        updateUserInfo();
+        // Configurar permissões baseadas no tipo de usuário
+        setupPermissions();
     }
 
     // Event Listeners
@@ -26,6 +32,54 @@ function initializeApp() {
     // Atualizar data/hora
     updateDateTime();
     setInterval(updateDateTime, 1000);
+    
+    // Carregar dados iniciais
+    if (window.location.pathname.includes('dashboard')) {
+        navigateToPage('overview');
+        startAutoRefresh();
+    }
+}
+
+function updateUserInfo() {
+    const userSpan = document.getElementById('currentUser');
+    const userTypeSpan = document.getElementById('userType');
+    
+    if (userSpan && currentUser) {
+        userSpan.textContent = currentUser.username;
+    }
+    
+    if (userTypeSpan && currentUser) {
+        const userTypeLabel = currentUser.user_type === 'admin' ? 'Administrador' : 'Usuário';
+        userTypeSpan.textContent = userTypeLabel;
+    }
+}
+
+function setupPermissions() {
+    // Esconder/mostrar elementos baseado no tipo de usuário
+    const isAdmin = currentUser && currentUser.user_type === 'admin';
+    
+    // Botões de adicionar (apenas admin)
+    const addDeviceBtn = document.getElementById('addDeviceBtn');
+    const addTurnstileBtn = document.getElementById('addTurnstileBtn');
+    const mqttSaveBtn = document.getElementById('mqttSaveBtn');
+    const actionsHeader = document.getElementById('actionsHeader');
+    const turnstilesActionsHeader = document.getElementById('turnstilesActionsHeader');
+    
+    if (addDeviceBtn) {
+        addDeviceBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+    }
+    if (addTurnstileBtn) {
+        addTurnstileBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+    }
+    if (mqttSaveBtn) {
+        mqttSaveBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+    }
+    if (actionsHeader) {
+        actionsHeader.style.display = isAdmin ? 'table-cell' : 'none';
+    }
+    if (turnstilesActionsHeader) {
+        turnstilesActionsHeader.style.display = isAdmin ? 'table-cell' : 'none';
+    }
 }
 
 function setupEventListeners() {
@@ -58,12 +112,21 @@ function setupEventListeners() {
 }
 
 // ===== Autenticação =====
+// Esta função não é mais necessária aqui, pois o login está em login.html
+// Mantida para compatibilidade caso seja chamada de outro lugar
 async function handleLogin(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
     const errorDiv = document.getElementById('loginError');
+
+    if (!usernameEl || !passwordEl) {
+        return;
+    }
+
+    const username = usernameEl.value;
+    const password = passwordEl.value;
 
     try {
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -80,15 +143,20 @@ async function handleLogin(e) {
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             
-            showDashboard();
+            // Redirecionar para dashboard
+            window.location.href = '/dashboard';
         } else {
-            errorDiv.textContent = data.error || 'Erro ao fazer login';
-            errorDiv.classList.add('show');
+            if (errorDiv) {
+                errorDiv.textContent = data.error || 'Erro ao fazer login';
+                errorDiv.classList.add('show');
+            }
         }
     } catch (error) {
         console.error('Erro no login:', error);
-        errorDiv.textContent = 'Erro de conexão com o servidor';
-        errorDiv.classList.add('show');
+        if (errorDiv) {
+            errorDiv.textContent = 'Erro de conexão com o servidor';
+            errorDiv.classList.add('show');
+        }
     }
 }
 
@@ -102,30 +170,8 @@ function handleLogout() {
         clearInterval(autoRefreshInterval);
     }
     
-    showLogin();
-}
-
-// ===== Navegação =====
-function showLogin() {
-    document.getElementById('loginPage').classList.add('active');
-    document.getElementById('dashboardPage').classList.remove('active');
-}
-
-function showDashboard() {
-    document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('dashboardPage').classList.add('active');
-    
-    // Atualizar nome do usuário
-    const userSpan = document.getElementById('currentUser');
-    if (userSpan && currentUser) {
-        userSpan.textContent = currentUser.username;
-    }
-    
-    // Carregar visão geral
-    navigateToPage('overview');
-    
-    // Iniciar auto refresh
-    startAutoRefresh();
+    // Redirecionar para login
+    window.location.href = '/';
 }
 
 function navigateToPage(pageName) {
@@ -229,24 +275,37 @@ async function loadOverview() {
         const logsResponse = await apiRequest('/logs?limit=5');
         const logs = logsResponse.logs || [];
         
+        // Contar acessos de hoje
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayLogs = logs.filter(log => {
+            const logDate = new Date(log.timestamp);
+            logDate.setHours(0, 0, 0, 0);
+            return logDate.getTime() === today.getTime();
+        });
+        
         const recentAccessList = document.getElementById('recentAccessList');
         if (logs.length === 0) {
             recentAccessList.innerHTML = '<p class="text-muted">Nenhum acesso registrado</p>';
         } else {
-            recentAccessList.innerHTML = logs.map(log => `
-                <div class="list-item">
-                    <div>
-                        <strong>${log.user_id || 'Desconhecido'}</strong>
-                        <br>
-                        <small class="text-muted">${formatDateTime(log.timestamp)}</small>
+            recentAccessList.innerHTML = logs.slice(0, 5).map(log => {
+                const actionLabel = log.action === 'entry' ? 'Entrada' : 'Saída';
+                const actionClass = log.action === 'entry' ? 'badge-success' : 'badge-info';
+                return `
+                    <div class="list-item">
+                        <div>
+                            <strong>${log.user_id || 'Desconhecido'}</strong>
+                            <br>
+                            <small class="text-muted">${formatDateTime(log.timestamp)}</small>
+                        </div>
+                        <span class="badge ${actionClass}">
+                            ${actionLabel}
+                        </span>
                     </div>
-                    <span class="badge ${log.action === 'entrada' ? 'badge-success' : 'badge-info'}">
-                        ${log.action}
-                    </span>
-                </div>
-            `).join('');
+                `;
+            }).join('');
             
-            document.getElementById('todayAccess').textContent = logs.length;
+            document.getElementById('todayAccess').textContent = todayLogs.length || logs.length;
         }
 
     } catch (error) {
@@ -265,17 +324,9 @@ async function loadDevices() {
         if (devices.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum dispositivo cadastrado</td></tr>';
         } else {
-            tbody.innerHTML = devices.map(device => `
-                <tr>
-                    <td>${device.hostname}</td>
-                    <td>${device.ip_address}</td>
-                    <td>${device.mac_address || 'N/A'}</td>
-                    <td>${device.user_id}</td>
-                    <td>
-                        <span class="badge ${device.status === 'online' ? 'badge-success' : 'badge-danger'}">
-                            ${device.status === 'online' ? 'Online' : 'Offline'}
-                        </span>
-                    </td>
+            const isAdmin = currentUser && currentUser.user_type === 'admin';
+            tbody.innerHTML = devices.map(device => {
+                const actionsHtml = isAdmin ? `
                     <td>
                         <button class="btn btn-sm btn-success" onclick="wakeDevice(${device.id})">
                             <i class="fas fa-power-off"></i>
@@ -287,8 +338,23 @@ async function loadDevices() {
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
-                </tr>
-            `).join('');
+                ` : '<td></td>';
+                
+                return `
+                    <tr>
+                        <td>${device.hostname}</td>
+                        <td>${device.ip_address}</td>
+                        <td>${device.mac_address || 'N/A'}</td>
+                        <td>${device.user_id}</td>
+                        <td>
+                            <span class="badge ${device.status === 'online' ? 'badge-success' : 'badge-danger'}">
+                                ${device.status === 'online' ? 'Online' : 'Offline'}
+                            </span>
+                        </td>
+                        ${actionsHtml}
+                    </tr>
+                `;
+            }).join('');
         }
     } catch (error) {
         console.error('Erro ao carregar dispositivos:', error);
@@ -340,21 +406,28 @@ async function loadTurnstiles() {
         if (turnstiles.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhuma catraca cadastrada</td></tr>';
         } else {
-            tbody.innerHTML = turnstiles.map(turnstile => `
-                <tr>
-                    <td>${turnstile.id}</td>
-                    <td>${turnstile.location || 'N/A'}</td>
-                    <td>
-                        <span class="badge badge-success">Ativa</span>
-                    </td>
-                    <td>${turnstile.last_access ? formatDateTime(turnstile.last_access) : 'Nunca'}</td>
+            const isAdmin = currentUser && currentUser.user_type === 'admin';
+            tbody.innerHTML = turnstiles.map(turnstile => {
+                const actionsHtml = isAdmin ? `
                     <td>
                         <button class="btn btn-sm btn-secondary" onclick="deleteTurnstile('${turnstile.id}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
-                </tr>
-            `).join('');
+                ` : '<td></td>';
+                
+                return `
+                    <tr>
+                        <td>${turnstile.id}</td>
+                        <td>${turnstile.location || 'N/A'}</td>
+                        <td>
+                            <span class="badge badge-success">Ativa</span>
+                        </td>
+                        <td>${turnstile.last_access ? formatDateTime(turnstile.last_access) : 'Nunca'}</td>
+                        ${actionsHtml}
+                    </tr>
+                `;
+            }).join('');
         }
         
         document.getElementById('totalTurnstiles').textContent = turnstiles.length;
