@@ -12,7 +12,9 @@
   },
   "shutdown": {
     "psexec_path": "C:\\Tools\\PsExec.exe",
-    "timeout": 30
+    "timeout": 30,
+    "admin_username": "skyline_admin",
+    "admin_password": "Skyline@2025"
   },
   "database": {
     "path": "backend/database/iot_system.db"

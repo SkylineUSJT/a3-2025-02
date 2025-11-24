@@ -48,44 +48,60 @@ class MQTTClient:
     def process_access_event(self, event):
         """
         Processa evento de acesso da catraca
-        Formato esperado: {"user_id": "123", "type": "entry/exit", "timestamp": "..."}
+        Formato esperado: {"rfid": "FUNC001", "type": "entry/exit", "idCatraca": 1}
         """
-        from modules.database import Database
-        from modules.wol import WakeOnLAN
-        from modules.shutdown import RemoteShutdown
+        from backend.modules.database import Database
+        from backend.modules.wol import WakeOnLAN
+        from backend.modules.shutdown import RemoteShutdown
         
-        user_id = event.get('user_id')
+        rfid = event.get('rfid') or event.get('user_id')  # Compatibilidade
         access_type = event.get('type')
+        idCatraca = event.get('idCatraca')
         
-        if not user_id or not access_type:
+        if not rfid or not access_type:
             logger.warning("Evento inválido recebido da catraca")
             return
         
         db = Database()
-        device = db.get_device_by_user(user_id)
         
-        if not device:
-            logger.warning(f"Dispositivo não encontrado para usuário {user_id}")
+        # Busca funcionário pelo RFID
+        funcionario = db.get_funcionario_by_rfid(rfid)
+        if not funcionario:
+            logger.warning(f"Funcionário não encontrado com RFID {rfid}")
             return
         
-        # Registra log de acesso
-        db.log_access(user_id, access_type)
+        # Busca computador do funcionário
+        computador = db.get_computador_by_funcionario(funcionario['idFunc'])
+        if not computador:
+            logger.warning(f"Computador não vinculado ao funcionário {funcionario['nome']}")
+            return
+        
+        # Verifica duplicação
+        tipo_evento = 'entrada' if access_type == 'entry' else 'saida'
+        if db.has_recent_evento(funcionario['idFunc'], tipo_evento):
+            logger.info(f"Evento recente já registrado para {funcionario['nome']}, ignorando")
+            return
+        
+        # Registra evento
+        db.add_evento(tipo_evento, idCatraca=idCatraca, 
+                     idComputador=computador['idComputador'], 
+                     idFuncionario=funcionario['idFunc'])
         
         if access_type == 'entry':
             # Liga o computador
             wol = WakeOnLAN()
-            success = wol.wake(device['mac_address'])
-            logger.info(f"Wake-on-LAN enviado para {device['hostname']}: {'sucesso' if success else 'falha'}")
+            success = wol.wake(computador['mac'])
+            logger.info(f"Wake-on-LAN enviado para {computador['hostname']} ({funcionario['nome']}): {'sucesso' if success else 'falha'}")
             
         elif access_type == 'exit':
             # Desliga o computador
             shutdown = RemoteShutdown()
             success = shutdown.shutdown_device(
-                ip_address=device['ip_address'],
-                os_type=device['os_type'],
-                credentials=device.get('credentials', {})
+                ip_address=computador['ip'],
+                os_type=computador['osSystem'],
+                credentials={}
             )
-            logger.info(f"Shutdown enviado para {device['hostname']}: {'sucesso' if success else 'falha'}")
+            logger.info(f"Shutdown enviado para {computador['hostname']} ({funcionario['nome']}): {'sucesso' if success else 'falha'}")
     
     def start(self):
         """Inicia cliente MQTT em thread separada"""

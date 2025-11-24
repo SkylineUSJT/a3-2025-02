@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Skyline A3</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Página de Login -->
+    <div class="login-page">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <i class="fas fa-tower-broadcast"></i>
+                    <h1>Skyline A3</h1>
+                    <p>Sistema IoT de Automação de Energia</p>
+                </div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-user"></i>
+                            Usuário
+                        </label>
+                        <input type="text" id="username" name="username" class="form-control" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock"></i>
+                            Senha
+                        </label>
+                        <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn-block btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Entrar
+                    </button>
+                    <div id="loginError" class="error-message"></div>
+                    <div class="login-info" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; font-size: 12px; color: #666;">
+                        <strong>Credenciais de teste:</strong><br>
+                        Admin: admin / admin123<br>
+                        Usuário: usuario / usuario123
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script>
+        // Configuração
+        const API_BASE_URL = 'http://localhost:5000/api';
+        
+        // Verificar se já está logado
+        const authToken = localStorage.getItem('authToken');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        
+        if (authToken && currentUser) {
+            window.location.href = '/dashboard';
+        }
+        
+        // Event Listener para login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('authToken', data.access_token);
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    
+                    // Redirecionar para dashboard
+                    window.location.href = '/dashboard';
+                } else {
+                    errorDiv.textContent = data.error || 'Erro ao fazer login';
+                    errorDiv.classList.add('show');
+                }
+            } catch (error) {
+                console.error('Erro no login:', error);
+                errorDiv.textContent = 'Erro de conexão com o servidor';
+                errorDiv.classList.add('show');
+            }
+        });
+    </script>
+</body>
+</html>
+

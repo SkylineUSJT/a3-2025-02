@@ -1,0 +1,92 @@
+================================================================
+       GUIA DE CONFIGURAÇÃO - WAKE-ON-LAN (WOL)
+================================================================
+
+O Wake-on-LAN permite ligar computadores remotamente via rede.
+Para funcionar corretamente, é necessário configurar:
+
+1. SOFTWARE (feito automaticamente pelo instalador_skyline.ps1)
+2. BIOS/UEFI (você precisa configurar manualmente)
+
+================================================================
+CONFIGURAÇÃO DA BIOS/UEFI
+================================================================
+
+PASSO 1: Entrar na BIOS/UEFI
+-----------------------------
+- Reinicie o computador
+- Pressione a tecla para entrar na BIOS durante a inicialização
+  Teclas comuns: F2, F10, F12, DEL, ESC
+  (varia de acordo com o fabricante)
+
+PASSO 2: Localizar configuração de Wake-on-LAN
+-----------------------------------------------
+Procure nas seguintes seções:
+- Power Management
+- Advanced
+- Integrated Peripherals
+- Network Configuration
+
+Procure por opções com os nomes:
+- Wake on LAN
+- Wake on PCI-E
+- Power On by PCI/PCI-E
+- PME (Power Management Event)
+- Wake Up on LAN
+
+PASSO 3: Habilitar Wake-on-LAN
+-------------------------------
+- HABILITE/ENABLE a opção encontrada
+- Se houver subopções, habilite "Wake on Magic Packet"
+
+PASSO 4: Configurar ErP Support (se disponível)
+------------------------------------------------
+- Procure por "ErP Support" ou "ErP Ready"
+- Configure como DISABLED/DESABILITADO
+  (ErP economiza energia mas pode impedir Wake-on-LAN)
+
+PASSO 5: Salvar e sair
+-----------------------
+- Pressione F10 para salvar
+- Confirme e reinicie
+
+================================================================
+VERIFICAÇÃO
+================================================================
+
+Após configurar:
+1. Desligue completamente o PC (não suspender)
+2. No sistema Skyline, clique no botão verde "Ligar"
+3. O PC deve ligar automaticamente em 5-10 segundos
+
+Se não funcionar:
+- Verifique se o cabo de rede está conectado (WiFi NÃO funciona)
+- Alguns switches/roteadores bloqueiam Magic Packets
+- Verifique se na fonte de alimentação há energia no modo desligado
+- Consulte o manual da placa-mãe para instruções específicas
+
+================================================================
+MARCAS COMUNS
+================================================================
+
+DELL:
+- Tecla: F2 ou F12
+- Menu: Power Management → Wake on LAN: Enabled
+
+HP:
+- Tecla: F10 ou ESC
+- Menu: Advanced → Power-On Options → Wake on LAN: Enabled
+
+LENOVO:
+- Tecla: F1 ou F2
+- Menu: Config → Network → Wake on LAN: Enabled
+
+ASUS:
+- Tecla: F2 ou DEL
+- Menu: Advanced → APM → Power On By PCI-E: Enabled
+
+GIGABYTE:
+- Tecla: DEL
+- Menu: Peripherals → Network Stack Configuration → Wake on LAN: Enabled
+
+================================================================

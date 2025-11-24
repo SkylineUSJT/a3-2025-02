@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 import json
+import ipaddress
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,21 @@ class WakeOnLAN:
             self.verify_interval = 1.0
             self.verify_ports = [445, 3389, 135]
     
+    def get_network_broadcast(self, ip_address):
+        """
+        Calcula o endereço de broadcast para um IP específico
+        """
+        try:
+            # Tenta detectar a interface de rede do IP
+            interface = ipaddress.ip_interface(f"{ip_address}/24")  # Assume /24
+            return str(interface.network.broadcast_address)
+        except:
+            # Se falhar, retorna broadcast padrão da classe C
+            parts = ip_address.split('.')
+            if len(parts) == 4:
+                return f"{parts[0]}.{parts[1]}.{parts[2]}.255"
+            return "255.255.255.255"
+    
     def create_magic_packet(self, mac_address):
         """
         Cria o Magic Packet para Wake-on-LAN
@@ -64,35 +80,65 @@ class WakeOnLAN:
         
         return magic_packet
     
-    def wake(self, mac_address, broadcast_ip=None, port=None):
+    def wake(self, mac_address, broadcast_ip=None, port=None, target_ip=None):
         """
         Envia Magic Packet para acordar o computador
         
         Args:
             mac_address: Endereço MAC do computador (formato: XX:XX:XX:XX:XX:XX)
-            broadcast_ip: IP de broadcast (padrão: 255.255.255.255)
+            broadcast_ip: IP de broadcast (padrão: auto-detectado)
             port: Porta UDP (padrão: 9)
+            target_ip: IP do computador alvo (usado para calcular broadcast correto)
         
         Returns:
             bool: True se enviado com sucesso, False caso contrário
         """
         try:
-            broadcast_ip = broadcast_ip or self.broadcast_ip
-            port = port or self.port
-            
             # Cria o Magic Packet
             magic_packet = self.create_magic_packet(mac_address)
             
-            # Cria socket UDP
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            # Lista de broadcasts para tentar (aumenta chance de sucesso)
+            broadcasts = []
             
-            # Envia o Magic Packet
-            sock.sendto(magic_packet, (broadcast_ip, port))
-            sock.close()
+            if broadcast_ip:
+                broadcasts.append(broadcast_ip)
+            else:
+                # Se temos o IP do target, calcula o broadcast específico
+                if target_ip:
+                    network_broadcast = self.get_network_broadcast(target_ip)
+                    broadcasts.append(network_broadcast)
+                    logger.info(f"Broadcast calculado para {target_ip}: {network_broadcast}")
+                
+                # Adiciona broadcasts padrão
+                broadcasts.extend([
+                    '255.255.255.255',  # Broadcast geral
+                    '192.168.18.255',   # Broadcast da rede local específica
+                ])
             
-            logger.info(f"Magic Packet enviado para {mac_address} via {broadcast_ip}:{port}")
-            return True
+            # Remove duplicatas mantendo ordem
+            broadcasts = list(dict.fromkeys(broadcasts))
+            
+            # Portas para tentar (9 é padrão, 7 é alternativa comum)
+            ports = [port or self.port, 7] if port != 7 else [7, 9]
+            
+            success_count = 0
+            for bcast in broadcasts:
+                for p in ports:
+                    try:
+                        # Cria socket UDP
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                        
+                        # Envia o Magic Packet
+                        sock.sendto(magic_packet, (bcast, p))
+                        sock.close()
+                        
+                        logger.info(f"Magic Packet enviado para {mac_address} via {bcast}:{p}")
+                        success_count += 1
+                    except Exception as e:
+                        logger.warning(f"Falha ao enviar para {bcast}:{p} - {e}")
+            
+            return success_count > 0
             
         except Exception as e:
             logger.error(f"Erro ao enviar Wake-on-LAN para {mac_address}: {e}")

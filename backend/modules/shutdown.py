@@ -7,6 +7,7 @@ import paramiko
 from pathlib import Path
 import json
 import os
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,69 @@ class RemoteShutdown:
                     self.config = json.load(f)
         except Exception:
             self.config = {}
+    
+    def shutdown_windows_wmi(self, ip_address, username, password):
+        """
+        Desliga computador Windows usando WMI via PowerShell (mais confiável)
+        
+        Args:
+            ip_address: IP do computador
+            username: Usuário administrador
+            password: Senha
+        
+        Returns:
+            bool: True se sucesso
+        """
+        try:
+            # Primeiro, adicionar IP aos TrustedHosts usando winrm (não requer elevação)
+            logger.info(f"Configurando TrustedHosts para {ip_address}...")
+            try:
+                # Usar winrm.cmd que é mais permissivo
+                config_result = subprocess.run(
+                    ["winrm", "set", "winrm/config/client", f"@{{TrustedHosts=\"{ip_address}\"}}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if config_result.returncode == 0:
+                    logger.info(f"TrustedHosts configurado para {ip_address}")
+                else:
+                    logger.warning(f"Não foi possível configurar TrustedHosts automaticamente")
+            except Exception as e:
+                logger.warning(f"TrustedHosts: {e}")
+            
+            # Criar script PowerShell inline para shutdown via WMI
+            ps_script = f"""
+$password = ConvertTo-SecureString '{password}' -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential('{username}', $password)
+$result = Invoke-Command -ComputerName {ip_address} -Credential $cred -ScriptBlock {{
+    Stop-Computer -Force
+}} -ErrorAction Stop
+exit 0
+"""
+            
+            # Executar PowerShell
+            cmd = ['powershell', '-Command', ps_script]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                logger.info(f"Shutdown WMI enviado para {ip_address}")
+                return True
+            else:
+                logger.error(f"Erro WMI em {ip_address}: {result.stderr}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            logger.error(f"Timeout ao desligar {ip_address} via WMI")
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao usar WMI em {ip_address}: {e}")
+            return False
     
     def shutdown_windows(self, ip_address, username=None, password=None):
         """
@@ -41,7 +105,7 @@ class RemoteShutdown:
             # Método 1: Usando shutdown do Windows (requer permissões)
             # shutdown /s /m \\IP /t 0 /f
             
-            # Se houver credenciais, tenta mapear sessão IPC primeiro (menos config no alvo que PsExec)
+            # Se houver credenciais, tenta mapear sessão IPC primeiro
             mapped = False
             mapped_format = None
             if username and password:
@@ -52,13 +116,19 @@ class RemoteShutdown:
                 ]
                 for u in user_variants:
                     try:
+                        # Primeiro limpar conexões antigas
+                        cleanup_cmd = ['net', 'use', f'\\\\{ip_address}\\IPC$', '/delete', '/yes']
+                        subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=5)
+                        
+                        # Mapear com credenciais
                         map_cmd = [
-                            'net', 'use', f'\\\\{ip_address}\\IPC$', f'/user:{u}', password
+                            'net', 'use', f'\\\\{ip_address}\\IPC$', password, f'/user:{u}'
                         ]
                         map_res = subprocess.run(map_cmd, capture_output=True, text=True, timeout=15)
                         if map_res.returncode == 0:
                             mapped = True
                             mapped_format = u
+                            logger.info(f"Sessão IPC autenticada com sucesso: {u}")
                             break
                         else:
                             logger.warning(f"Falha ao autenticar sessão IPC com '{u}': {map_res.stderr.strip()}")
@@ -83,17 +153,34 @@ class RemoteShutdown:
             
             if result.returncode == 0:
                 logger.info(f"Shutdown Windows enviado para {ip_address}")
+                
+                # Limpar sessão IPC após shutdown
+                if mapped:
+                    try:
+                        cleanup_cmd = ['net', 'use', f'\\\\{ip_address}\\IPC$', '/delete', '/yes']
+                        subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=5)
+                    except Exception:
+                        pass
+                
                 return True
             else:
                 logger.error(f"Erro ao desligar {ip_address}: {result.stderr}")
-                # Se falhou e temos credenciais, tenta PsExec se configurado
+                
+                # Se shutdown tradicional falhou mas temos credenciais, tentar WMI
                 if username and password:
-                    psexec_path = self.config.get('shutdown', {}).get('psexec_path')
-                    if psexec_path and Path(psexec_path).exists():
-                        logger.info("Tentando fallback via PsExec")
-                        return self.shutdown_windows_psexec(ip_address, username, password, psexec_path)
-                    else:
-                        logger.error(f"PsExec não encontrado em {psexec_path}")
+                    logger.info("Tentando método alternativo via WMI/PowerShell...")
+                    wmi_success = self.shutdown_windows_wmi(ip_address, username, password)
+                    if wmi_success:
+                        return True
+                
+                # Limpar sessão em caso de erro
+                if mapped:
+                    try:
+                        cleanup_cmd = ['net', 'use', f'\\\\{ip_address}\\IPC$', '/delete', '/yes']
+                        subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=5)
+                    except Exception:
+                        pass
+                
                 return False
                 
         except subprocess.TimeoutExpired:

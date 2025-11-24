@@ -9,8 +9,6 @@ from datetime import datetime
 import logging
 import os
 import hashlib
-import sqlite3
-import json
 from functools import wraps
 
 from backend.modules.database import Database
@@ -31,16 +29,6 @@ logger = logging.getLogger(__name__)
 
 # Configurar caminho para o frontend
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
-DB_PATH = os.path.join(os.path.dirname(__file__), 'database', 'iot_system.db')
-
-# Carregar configurações
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.json')
-try:
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        CONFIG = json.load(f)
-except Exception as e:
-    logger.warning(f"Erro ao carregar config.json: {e}")
-    CONFIG = {}
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)
@@ -141,343 +129,6 @@ def login():
     }), 200
 
 
-# ==================== ENDPOINTS V2.0 ====================
-
-# --- Funcionários ---
-@app.route('/api/funcionarios', methods=['GET'])
-@jwt_required()
-def get_funcionarios():
-    """Lista todos os funcionários"""
-    try:
-        funcionarios = db.get_all_funcionarios()
-        return jsonify({'funcionarios': funcionarios}), 200
-    except Exception as e:
-        logger.error(f"Erro ao listar funcionários: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/funcionarios/<int:idFunc>', methods=['GET'])
-@jwt_required()
-def get_funcionario(idFunc):
-    """Busca funcionário por ID"""
-    try:
-        funcionario = db.get_funcionario_by_id(idFunc)
-        if not funcionario:
-            return jsonify({'error': 'Funcionário não encontrado'}), 404
-        return jsonify(funcionario), 200
-    except Exception as e:
-        logger.error(f"Erro ao buscar funcionário: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/funcionarios', methods=['POST'])
-@jwt_required()
-def add_funcionario():
-    """Adiciona novo funcionário"""
-    try:
-        data = request.json
-        nome = data.get('nome')
-        cargo = data.get('cargo')
-        rfid = data.get('rfid')
-        unidade = data.get('unidade')
-        
-        if not all([nome, cargo, rfid, unidade]):
-            return jsonify({'error': 'Campos obrigatórios: nome, cargo, rfid, unidade'}), 400
-        
-        func_id = db.add_funcionario(nome, cargo, rfid, unidade)
-        return jsonify({'idFunc': func_id, 'message': 'Funcionário cadastrado com sucesso'}), 201
-    except Exception as e:
-        logger.error(f"Erro ao cadastrar funcionário: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/funcionarios/<int:idFunc>', methods=['PUT'])
-@jwt_required()
-def update_funcionario(idFunc):
-    """Atualiza funcionário"""
-    try:
-        data = request.json
-        db.update_funcionario(idFunc, **data)
-        return jsonify({'message': 'Funcionário atualizado com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao atualizar funcionário: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/funcionarios/<int:idFunc>', methods=['DELETE'])
-@jwt_required()
-def delete_funcionario(idFunc):
-    """Exclui funcionário"""
-    try:
-        db.delete_funcionario(idFunc)
-        return jsonify({'message': 'Funcionário excluído com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao excluir funcionário: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# --- Computadores ---
-@app.route('/api/computadores', methods=['GET'])
-@jwt_required()
-def get_computadores():
-    """Lista todos os computadores"""
-    try:
-        computadores = db.get_all_computadores()
-        return jsonify({'computadores': computadores}), 200
-    except Exception as e:
-        logger.error(f"Erro ao listar computadores: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores/<int:idComputador>', methods=['GET'])
-@jwt_required()
-def get_computador(idComputador):
-    """Busca computador por ID"""
-    try:
-        computador = db.get_computador_by_id(idComputador)
-        if not computador:
-            return jsonify({'error': 'Computador não encontrado'}), 404
-        return jsonify(computador), 200
-    except Exception as e:
-        logger.error(f"Erro ao buscar computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores', methods=['POST'])
-@jwt_required()
-def add_computador():
-    """Adiciona novo computador"""
-    try:
-        data = request.json
-        hostname = data.get('hostname')
-        ip = data.get('ip')
-        mac = data.get('mac')
-        osSystem = data.get('osSystem', 'windows')
-        idFuncionario = data.get('idFuncionario')
-        
-        if not all([hostname, ip, mac, idFuncionario]):
-            return jsonify({'error': 'Campos obrigatórios: hostname, ip, mac, idFuncionario'}), 400
-        
-        comp_id = db.add_computador(hostname, ip, mac, osSystem, idFuncionario)
-        return jsonify({'idComputador': comp_id, 'message': 'Computador cadastrado com sucesso'}), 201
-    except Exception as e:
-        logger.error(f"Erro ao cadastrar computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores/<int:idComputador>', methods=['PUT'])
-@jwt_required()
-def update_computador(idComputador):
-    """Atualiza computador"""
-    try:
-        data = request.json
-        db.update_computador(idComputador, **data)
-        return jsonify({'message': 'Computador atualizado com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao atualizar computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores/<int:idComputador>', methods=['DELETE'])
-@jwt_required()
-def delete_computador(idComputador):
-    """Exclui computador"""
-    try:
-        db.delete_computador(idComputador)
-        return jsonify({'message': 'Computador excluído com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao excluir computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores/<int:idComputador>/wake', methods=['POST'])
-@jwt_required()
-def wake_computador(idComputador):
-    """Liga computador via Wake-on-LAN"""
-    try:
-        comp = db.get_computador_by_id(idComputador)
-        if not comp:
-            return jsonify({'error': 'Computador não encontrado'}), 404
-        
-        # Passa o IP do computador para calcular broadcast correto
-        success = wol.wake(comp['mac'], target_ip=comp.get('ip'))
-        if success:
-            db.add_evento('wake', idComputador=idComputador, idFuncionario=comp.get('idFuncionario'))
-            return jsonify({'message': 'Comando Wake-on-LAN enviado com sucesso'}), 200
-        else:
-            return jsonify({'error': 'Falha ao enviar Wake-on-LAN'}), 500
-    except Exception as e:
-        logger.error(f"Erro ao ligar computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/computadores/<int:idComputador>/shutdown', methods=['POST'])
-@jwt_required()
-def shutdown_computador(idComputador):
-    """Desliga computador remotamente"""
-    try:
-        comp = db.get_computador_by_id(idComputador)
-        if not comp:
-            return jsonify({'error': 'Computador não encontrado'}), 404
-        
-        # Obter credenciais do config
-        credentials = {}
-        shutdown_config = CONFIG.get('shutdown', {})
-        if shutdown_config.get('admin_username') and shutdown_config.get('admin_password'):
-            credentials = {
-                'username': shutdown_config['admin_username'],
-                'password': shutdown_config['admin_password']
-            }
-        
-        success = shutdown.shutdown_device(comp['ip'], comp['osSystem'], credentials)
-        if success:
-            db.add_evento('shutdown', idComputador=idComputador, idFuncionario=comp.get('idFuncionario'))
-            return jsonify({'message': 'Comando de desligamento enviado com sucesso'}), 200
-        else:
-            return jsonify({'error': 'Falha ao desligar computador'}), 500
-    except Exception as e:
-        logger.error(f"Erro ao desligar computador: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# --- Catracas ---
-@app.route('/api/catracas', methods=['GET'])
-@jwt_required()
-def get_catracas():
-    """Lista todas as catracas"""
-    try:
-        catracas = db.get_all_catracas()
-        return jsonify({'catracas': catracas}), 200
-    except Exception as e:
-        logger.error(f"Erro ao listar catracas: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/catracas/<int:idCatraca>', methods=['GET'])
-@jwt_required()
-def get_catraca(idCatraca):
-    """Busca catraca por ID"""
-    try:
-        catraca = db.get_catraca_by_id(idCatraca)
-        if not catraca:
-            return jsonify({'error': 'Catraca não encontrada'}), 404
-        return jsonify(catraca), 200
-    except Exception as e:
-        logger.error(f"Erro ao buscar catraca: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/catracas', methods=['POST'])
-@jwt_required()
-def add_catraca():
-    """Adiciona nova catraca"""
-    try:
-        data = request.json
-        nome = data.get('nome')
-        localizacao = data.get('localizacao')
-        status = data.get('status', 'ativo')
-        
-        if not all([nome, localizacao]):
-            return jsonify({'error': 'Campos obrigatórios: nome, localizacao'}), 400
-        
-        catraca_id = db.add_catraca(nome, localizacao, status)
-        return jsonify({'idCatraca': catraca_id, 'message': 'Catraca cadastrada com sucesso'}), 201
-    except Exception as e:
-        logger.error(f"Erro ao cadastrar catraca: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/catracas/<int:idCatraca>', methods=['PUT'])
-@jwt_required()
-def update_catraca(idCatraca):
-    """Atualiza catraca"""
-    try:
-        data = request.json
-        db.update_catraca(idCatraca, **data)
-        return jsonify({'message': 'Catraca atualizada com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao atualizar catraca: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/catracas/<int:idCatraca>', methods=['DELETE'])
-@jwt_required()
-def delete_catraca(idCatraca):
-    """Exclui catraca"""
-    try:
-        db.delete_catraca(idCatraca)
-        return jsonify({'message': 'Catraca excluída com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao excluir catraca: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# --- Eventos ---
-@app.route('/api/eventos', methods=['GET'])
-@jwt_required()
-def get_eventos():
-    """Lista eventos com filtros"""
-    try:
-        limit = request.args.get('limit', 50, type=int)
-        idFuncionario = request.args.get('idFuncionario', type=int)
-        tipo = request.args.get('tipo')
-        
-        eventos = db.get_eventos(limit=limit, idFuncionario=idFuncionario, tipo=tipo)
-        return jsonify({'eventos': eventos}), 200
-    except Exception as e:
-        logger.error(f"Erro ao listar eventos: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/eventos', methods=['POST'])
-@jwt_required()
-def add_evento():
-    """Registra novo evento"""
-    try:
-        data = request.json
-        tipo = data.get('tipo')
-        idCatraca = data.get('idCatraca')
-        idComputador = data.get('idComputador')
-        idFuncionario = data.get('idFuncionario')
-        
-        if not tipo:
-            return jsonify({'error': 'Campo obrigatório: tipo'}), 400
-        
-        evento_id = db.add_evento(tipo, idCatraca, idComputador, idFuncionario)
-        return jsonify({'idEvento': evento_id, 'message': 'Evento registrado com sucesso'}), 201
-    except Exception as e:
-        logger.error(f"Erro ao registrar evento: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# --- Exceções ---
-@app.route('/api/excecoes', methods=['GET'])
-@jwt_required()
-def get_excecoes():
-    """Lista exceções com filtros"""
-    try:
-        limit = request.args.get('limit', 50, type=int)
-        idFuncionario = request.args.get('idFuncionario', type=int)
-        
-        excecoes = db.get_excecoes(idFuncionario=idFuncionario, limit=limit)
-        return jsonify({'excecoes': excecoes}), 200
-    except Exception as e:
-        logger.error(f"Erro ao listar exceções: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/excecoes', methods=['POST'])
-@jwt_required()
-def add_excecao():
-    """Adiciona nova exceção"""
-    try:
-        data = request.json
-        motivo = data.get('motivo')
-        idFuncionario = data.get('idFuncionario')
-        duracao = data.get('duracao')
-        
-        if not all([motivo, idFuncionario]):
-            return jsonify({'error': 'Campos obrigatórios: motivo, idFuncionario'}), 400
-        
-        excecao_id = db.add_excecao(motivo, idFuncionario, duracao)
-        return jsonify({'idExcec': excecao_id, 'message': 'Exceção cadastrada com sucesso'}), 201
-    except Exception as e:
-        logger.error(f"Erro ao cadastrar exceção: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/excecoes/<int:idExcec>', methods=['DELETE'])
-@jwt_required()
-def delete_excecao(idExcec):
-    """Exclui exceção"""
-    try:
-        db.delete_excecao(idExcec)
-        return jsonify({'message': 'Exceção excluída com sucesso'}), 200
-    except Exception as e:
-        logger.error(f"Erro ao excluir exceção: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# ==================== ENDPOINTS LEGADOS (compatibilidade) ====================
-
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
     """Lista todos os dispositivos cadastrados"""
@@ -540,8 +191,8 @@ def register_entry():
         # Registra log de acesso
         db.log_access(user_id, 'entry')
         
-        # Envia Wake-on-LAN com IP para calcular broadcast correto
-        success = wol.wake(device['mac_address'], target_ip=device.get('ip_address'))
+        # Envia Wake-on-LAN
+        success = wol.wake(device['mac_address'])
 
         if not success:
             return jsonify({'error': 'Falha ao enviar Wake-on-LAN'}), 500
@@ -562,6 +213,7 @@ def register_entry():
                 'device': device['hostname'],
                 'status': 'pending'
             }), 202
+            
     except Exception as e:
         logger.error(f"Erro ao registrar entrada: {e}")
         return jsonify({'error': str(e)}), 500
@@ -588,20 +240,11 @@ def register_exit():
         # Registra log de acesso
         db.log_access(user_id, 'exit')
 
-        # Obter credenciais do config
-        credentials = device.get('credentials', {})
-        shutdown_config = CONFIG.get('shutdown', {})
-        if shutdown_config.get('admin_username') and shutdown_config.get('admin_password'):
-            credentials = {
-                'username': shutdown_config['admin_username'],
-                'password': shutdown_config['admin_password']
-            }
-
         # Desliga computador remotamente (método tradicional)
         success = shutdown.shutdown_device(
             ip_address=device['ip_address'],
             os_type=device['os_type'],
-            credentials=credentials
+            credentials=device.get('credentials', {})
         )
 
         if success:
@@ -667,8 +310,7 @@ def wake_device(device_id):
         if not device:
             return jsonify({'error': 'Dispositivo não encontrado'}), 404
         
-        # Passa o IP do dispositivo para calcular broadcast correto
-        success = wol.wake(device['mac_address'], target_ip=device.get('ip_address'))
+        success = wol.wake(device['mac_address'])
         if success:
             return jsonify({'message': 'Comando Wake-on-LAN enviado'}), 200
         else:
@@ -686,19 +328,10 @@ def shutdown_device_route(device_id):
         if not device:
             return jsonify({'error': 'Dispositivo não encontrado'}), 404
         
-        # Obter credenciais do config
-        credentials = device.get('credentials', {})
-        shutdown_config = CONFIG.get('shutdown', {})
-        if shutdown_config.get('admin_username') and shutdown_config.get('admin_password'):
-            credentials = {
-                'username': shutdown_config['admin_username'],
-                'password': shutdown_config['admin_password']
-            }
-        
         success = shutdown.shutdown_device(
             ip_address=device['ip_address'],
             os_type=device['os_type'],
-            credentials=credentials
+            credentials=device.get('credentials', {})
         )
         
         if success:
@@ -817,38 +450,6 @@ def init_fake_data():
                     logger.warning(f"Erro ao criar log fake: {e}")
     
     logger.info("Dados fake criados com sucesso")
-
-def init_default_users():
-    """Cria usuários padrão se não existirem"""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Verifica se usuário admin já existe
-        cursor.execute('SELECT username FROM users WHERE username = ?', ('admin',))
-        if not cursor.fetchone():
-            admin_password = hash_password('admin123')
-            cursor.execute('''
-                INSERT INTO users (username, password, user_type) 
-                VALUES (?, ?, ?)
-            ''', ('admin', admin_password, 'admin'))
-            logger.info("✅ Usuário admin criado (senha: admin123)")
-        
-        # Verifica se usuário comum já existe
-        cursor.execute('SELECT username FROM users WHERE username = ?', ('usuario',))
-        if not cursor.fetchone():
-            user_password = hash_password('usuario123')
-            cursor.execute('''
-                INSERT INTO users (username, password, user_type) 
-                VALUES (?, ?, ?)
-            ''', ('usuario', user_password, 'usuario'))
-            logger.info("✅ Usuário comum criado (senha: usuario123)")
-        
-        conn.commit()
-        conn.close()
-        logger.info("Usuários padrão inicializados")
-    except Exception as e:
-        logger.error(f"Erro ao criar usuários padrão: {e}")
 
 if __name__ == '__main__':
     # Inicializa banco de dados
