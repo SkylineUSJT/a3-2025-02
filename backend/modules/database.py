@@ -702,10 +702,14 @@ class Database:
         """Busca usuário por nome de usuário"""
         conn = self.get_connection()
         cursor = conn.cursor()
+        
         cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
         row = cursor.fetchone()
         conn.close()
-        return dict(row) if row else None
+        
+        if row:
+            return dict(row)
+        return None
     
     def create_user(self, username, password, user_type='usuario'):
         """Cria novo usuário"""
@@ -731,7 +735,9 @@ class Database:
         """Lista todos os usuários (sem senha)"""
         conn = self.get_connection()
         cursor = conn.cursor()
+        
         cursor.execute('SELECT id, username, user_type, created_at FROM users')
         rows = cursor.fetchall()
         conn.close()
+        
         return [dict(row) for row in rows]
