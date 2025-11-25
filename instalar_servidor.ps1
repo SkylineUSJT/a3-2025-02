@@ -25,7 +25,7 @@ Write-Host ""
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "[ERRO] Este script precisa ser executado como ADMINISTRADOR!" -ForegroundColor Red
-    Write-Host "       Clique com botão direito e selecione 'Executar como administrador'" -ForegroundColor Yellow
+    Write-Host "       Clique com botao direito e selecione 'Executar como administrador'" -ForegroundColor Yellow
     pause
     exit 1
 }
@@ -48,9 +48,9 @@ foreach ($cmd in @("python", "python3", "py")) {
 }
 
 if (-not $pythonCmd) {
-    Write-Host "[ERRO] Python não encontrado!" -ForegroundColor Red
+    Write-Host "[ERRO] Python nao encontrado!" -ForegroundColor Red
     Write-Host "       Instale Python 3.x de https://www.python.org/downloads/" -ForegroundColor Yellow
-    Write-Host "       Marque a opção 'Add Python to PATH' durante a instalação" -ForegroundColor Yellow
+    Write-Host "       Marque a opcao 'Add Python to PATH' durante a instalacao" -ForegroundColor Yellow
     pause
     exit 1
 }
@@ -59,7 +59,7 @@ if (-not $pythonCmd) {
 # 2. INSTALAR DEPENDÊNCIAS PYTHON
 # ================================================================
 Write-Host ""
-Write-Host "[2/6] Instalando dependências Python..." -ForegroundColor Green
+Write-Host "[2/6] Instalando dependencias Python..." -ForegroundColor Green
 
 if (Test-Path "requirements.txt") {
     try {
@@ -82,20 +82,20 @@ if (Test-Path "requirements.txt") {
         }
         
         Write-Host ""
-        Write-Host "      Dependências instaladas com sucesso" -ForegroundColor White
+        Write-Host "      Dependencias instaladas com sucesso" -ForegroundColor White
     } catch {
-        Write-Host "[AVISO] Erro ao instalar dependências: $_" -ForegroundColor Yellow
+        Write-Host "[AVISO] Erro ao instalar dependencias: $_" -ForegroundColor Yellow
         Write-Host "        Execute manualmente: pip install -r requirements.txt" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "[AVISO] Arquivo requirements.txt não encontrado" -ForegroundColor Yellow
+    Write-Host "[AVISO] Arquivo requirements.txt nao encontrado" -ForegroundColor Yellow
 }
 
 # ================================================================
 # 3. CRIAR ESTRUTURA DE DIRETÓRIOS
 # ================================================================
 Write-Host ""
-Write-Host "[3/6] Criando estrutura de diretórios..." -ForegroundColor Green
+Write-Host "[3/6] Criando estrutura de diretorios..." -ForegroundColor Green
 
 $dirs = @("logs", "backend/database", "config")
 foreach ($dir in $dirs) {
@@ -138,7 +138,7 @@ try {
     Write-Host "      TrustedHosts configurado: $trustedHosts" -ForegroundColor White
 } catch {
     Write-Host "[AVISO] Erro ao configurar TrustedHosts: $_" -ForegroundColor Yellow
-    Write-Host "        O shutdown remoto pode não funcionar" -ForegroundColor Yellow
+    Write-Host "        O shutdown remoto pode nao funcionar" -ForegroundColor Yellow
 }
 
 # ================================================================
@@ -156,7 +156,7 @@ try {
         New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Allow -ErrorAction Stop | Out-Null
         Write-Host "      Regra criada: Porta 5000 (Backend)" -ForegroundColor White
     } else {
-        Write-Host "      Regra já existe: Porta 5000" -ForegroundColor White
+        Write-Host "      Regra ja existe: Porta 5000" -ForegroundColor White
     }
     
     # Porta 1883 - MQTT (opcional)
@@ -167,7 +167,7 @@ try {
         New-NetFirewallRule -DisplayName $mqttRule -Direction Inbound -Protocol TCP -LocalPort 1883 -Action Allow -ErrorAction Stop | Out-Null
         Write-Host "      Regra criada: Porta 1883 (MQTT)" -ForegroundColor White
     } else {
-        Write-Host "      Regra já existe: Porta 1883" -ForegroundColor White
+        Write-Host "      Regra ja existe: Porta 1883" -ForegroundColor White
     }
 } catch {
     Write-Host "[AVISO] Erro ao configurar firewall: $_" -ForegroundColor Yellow
@@ -178,10 +178,10 @@ try {
 # ================================================================
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host "          INSTALAÇÃO CONCLUÍDA COM SUCESSO!" -ForegroundColor Green
+Write-Host "          INSTALACAO CONCLUIDA COM SUCESSO!" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "PRÓXIMOS PASSOS:" -ForegroundColor Cyan
+Write-Host "PROXIMOS PASSOS:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "1. Verifique o arquivo config/config.json:" -ForegroundColor White
 Write-Host "   - MQTT broker (padrão: localhost:1883)" -ForegroundColor Gray
@@ -196,8 +196,8 @@ Write-Host "   http://localhost:5000" -ForegroundColor Yellow
 Write-Host "   ou" -ForegroundColor White
 Write-Host "   http://SEU_IP:5000" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "4. Credenciais padrão:" -ForegroundColor White
-Write-Host "   Usuário: admin" -ForegroundColor Yellow
+Write-Host "4. Credenciais padrao:" -ForegroundColor White
+Write-Host "   Usuario: admin" -ForegroundColor Yellow
 Write-Host "   Senha: admin123" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "5. Cadastre funcionários e computadores na interface web" -ForegroundColor White
