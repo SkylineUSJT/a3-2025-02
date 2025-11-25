@@ -63,8 +63,25 @@ Write-Host "[2/6] Instalando dependências Python..." -ForegroundColor Green
 
 if (Test-Path "requirements.txt") {
     try {
+        Write-Host "      Atualizando pip..." -ForegroundColor White
         & $pythonCmd -m pip install --upgrade pip --quiet
+        
+        Write-Host "      Instalando pacotes (Flask, MQTT, etc)..." -ForegroundColor White
         & $pythonCmd -m pip install -r requirements.txt --quiet
+        
+        Write-Host "      Verificando instalação..." -ForegroundColor White
+        $packages = & $pythonCmd -m pip list --format=freeze
+        $required = @("Flask", "Flask-CORS", "paho-mqtt", "paramiko", "Werkzeug", "Flask-JWT-Extended")
+        
+        foreach ($pkg in $required) {
+            if ($packages -match "(?i)^$pkg") {
+                Write-Host "      ✓ $pkg instalado" -ForegroundColor Green
+            } else {
+                Write-Host "      ✗ $pkg NÃO encontrado" -ForegroundColor Yellow
+            }
+        }
+        
+        Write-Host ""
         Write-Host "      Dependências instaladas com sucesso" -ForegroundColor White
     } catch {
         Write-Host "[AVISO] Erro ao instalar dependências: $_" -ForegroundColor Yellow
@@ -166,7 +183,11 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 Write-Host "PRÓXIMOS PASSOS:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "1. Configure o arquivo config/config.json se necessário" -ForegroundColor White
+Write-Host "1. Verifique o arquivo config/config.json:" -ForegroundColor White
+Write-Host "   - MQTT broker (padrão: localhost:1883)" -ForegroundColor Gray
+Write-Host "   - Credenciais de shutdown (skyline_admin/Skyline@2025)" -ForegroundColor Gray
+Write-Host "   - Porta do servidor (padrão: 5000)" -ForegroundColor Gray
+Write-Host ""
 Write-Host "2. Inicie o servidor executando:" -ForegroundColor White
 Write-Host "   python start_system.py" -ForegroundColor Yellow
 Write-Host ""
@@ -179,7 +200,10 @@ Write-Host "4. Credenciais padrão:" -ForegroundColor White
 Write-Host "   Usuário: admin" -ForegroundColor Yellow
 Write-Host "   Senha: admin123" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "5. Execute instalar_cliente.ps1 nos computadores remotos" -ForegroundColor White
+Write-Host "5. Cadastre funcionários e computadores na interface web" -ForegroundColor White
+Write-Host ""
+Write-Host "6. Execute instalar_cliente.ps1 nos computadores remotos" -ForegroundColor White
+Write-Host "   (Como ADMINISTRADOR)" -ForegroundColor Gray
 Write-Host ""
 
 pause

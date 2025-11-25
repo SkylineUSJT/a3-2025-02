@@ -1,0 +1,197 @@
+# ================================================================
+# GUIA DE APRESENTAÇÃO - SISTEMA SKYLINE A3
+# ================================================================
+# Data: 25/11/2025
+# Versão: 2.0 - Final
+# ================================================================
+
+## ✅ CHECKLIST PRÉ-APRESENTAÇÃO
+
+### 1. SERVIDOR (Faça ANTES da apresentação)
+- [ ] Execute: `python start_system.py`
+- [ ] Verifique se aparece: "Running on http://127.0.0.1:5000"
+- [ ] Verifique se aparece: "Conectado ao broker MQTT"
+- [ ] Deixe o terminal aberto durante toda a apresentação
+
+### 2. ACESSO WEB
+- [ ] Abra navegador em: http://localhost:5000
+- [ ] Teste login: admin / admin123
+- [ ] Verifique se dashboard carrega
+- [ ] Mantenha aba aberta para demonstração
+
+### 3. DADOS DE TESTE
+Funcionários cadastrados:
+- João Silva (RFID: FUNC001) - Desenvolvedor
+- Maria Santos (RFID: FUNC002) - Analista  
+- Pedro Costa (RFID: FUNC003) - Designer
+- + 4 funcionários adicionais (total: 7)
+
+Computadores:
+- PC-JOAO (192.168.1.10) → João Silva
+- PC-MARIA (192.168.1.11) → Maria Santos
+- PC-PEDRO (192.168.1.12) → Pedro Costa
+
+### 4. FUNCIONALIDADES PARA DEMONSTRAR
+✅ Login e autenticação JWT
+✅ Dashboard com estatísticas
+✅ CRUD completo de funcionários
+✅ CRUD completo de computadores
+✅ Gerenciamento de catracas
+✅ Histórico de eventos/acessos
+✅ Shutdown remoto (se houver PC teste)
+✅ Wake-on-LAN (se houver PC teste)
+
+## 📋 ROTEIRO DE APRESENTAÇÃO (15 min)
+
+### ABERTURA (2 min)
+"Bom dia/tarde! Vou apresentar o Sistema Skyline A3, uma solução IoT 
+para automação de energia que integra catracas de acesso com 
+gerenciamento remoto de computadores."
+
+### PARTE 1: VISÃO GERAL (3 min)
+1. Mostre a arquitetura no README.md
+2. Explique o fluxo:
+   - Funcionário passa RFID na catraca
+   - Sistema identifica usuário e computador
+   - Liga computador automaticamente (Wake-on-LAN)
+   - Desliga quando sai (Shutdown remoto)
+
+3. Tecnologias usadas:
+   - Backend: Python + Flask + SQLite
+   - Frontend: HTML5 + CSS3 + JavaScript
+   - Comunicação: MQTT para catracas
+   - Segurança: JWT para autenticação
+
+### PARTE 2: DEMONSTRAÇÃO PRÁTICA (8 min)
+
+#### A. Login e Dashboard (1 min)
+1. Acesse http://localhost:5000
+2. Login: admin / admin123
+3. Mostre dashboard com estatísticas
+
+#### B. Gerenciamento de Funcionários (2 min)
+1. Clique em "Funcionários"
+2. Mostre lista atual
+3. Adicione novo funcionário (demonstração)
+4. Edite um funcionário
+5. Mostre geração automática de RFID
+
+#### C. Gerenciamento de Computadores (2 min)
+1. Clique em "Computadores"
+2. Mostre lista com status (online/offline)
+3. Adicione novo PC (demonstração)
+4. Mostre campos: hostname, IP, MAC, funcionário
+
+#### D. Controle Remoto (2 min)
+1. Selecione um computador
+2. Botão verde "Ligar" → Wake-on-LAN
+3. Botão vermelho "Desligar" → Shutdown remoto
+4. Explique: "Em produção, isso seria automático via catraca"
+
+#### E. Logs e Histórico (1 min)
+1. Mostre "Eventos"
+2. Histórico de entradas/saídas
+3. Logs de wake/shutdown
+
+### PARTE 3: DIFERENCIAIS (2 min)
+
+🎯 Pontos fortes:
+- ✅ Automação completa (ligar/desligar sem intervenção)
+- ✅ Economia de energia (desliga PCs ociosos)
+- ✅ Interface intuitiva e responsiva
+- ✅ Instaladores automatizados (servidor e clientes)
+- ✅ Segurança (JWT, autenticação, logs)
+- ✅ Escalável (suporta múltiplos PCs e catracas)
+
+🔧 Implementação prática:
+- instalar_servidor.ps1 → Configura servidor em 1 clique
+- instalar_cliente.ps1 → Configura cada PC automaticamente
+- Documentação completa (CONFIGURACAO_WAKE_ON_LAN.txt)
+
+## 🎤 PERGUNTAS FREQUENTES
+
+**P: Como funciona o Wake-on-LAN?**
+R: Enviamos um "Magic Packet" UDP com o MAC address do PC. A placa de 
+rede detecta e liga o computador. Requer configuração na BIOS.
+
+**P: E se o computador não ligar?**
+R: Sistema tenta múltiplos broadcasts (255.255.255.255 e broadcast da 
+rede) em 2 portas diferentes (7 e 9). Se falhar, indica na interface.
+
+**P: Como é o shutdown remoto?**
+R: Windows: PowerShell Remoting (WMI) com fallback para net use + shutdown
+   Linux: SSH com sudo
+
+**P: É seguro?**
+R: Sim! Usa autenticação JWT, credenciais criptografadas, e usuário 
+administrativo dedicado (skyline_admin) com permissões específicas.
+
+**P: Suporta quantos computadores?**
+R: Ilimitado. SQLite suporta milhares de registros. Para escala 
+empresarial, migraria para PostgreSQL.
+
+**P: Integra com catracas reais?**
+R: Sim! Usa protocolo MQTT padrão. Testado com simulador, mas compatível
+com qualquer catraca que publique JSON no formato:
+{"rfid": "FUNC001", "tipo": "entrada"}
+
+## 🚨 PROBLEMAS COMUNS E SOLUÇÕES
+
+### Servidor não inicia
+- Verifique Python 3.x instalado: `python --version`
+- Instale dependências: `pip install -r requirements.txt`
+- Porta 5000 em uso: Feche outros programas ou mude porta
+
+### Login não funciona
+- Credenciais: admin / admin123
+- Verifique se banco foi inicializado (backend/database/iot_system.db existe)
+- Execute start_system.py para recriar banco
+
+### Wake-on-LAN não funciona
+1. PC cliente desligado? (não hibernado)
+2. Cabo ethernet conectado? (WiFi NÃO funciona)
+3. BIOS configurada? (Wake on LAN = Enabled)
+4. Firewall bloqueando? (porta UDP 7 e 9)
+
+### Shutdown não funciona
+1. Execute instalar_servidor.ps1 como admin
+2. Execute instalar_cliente.ps1 no PC alvo como admin
+3. Verifique usuário skyline_admin criado
+4. Verifique WinRM rodando: `Get-Service WinRM`
+
+## 📊 DEMONSTRAÇÃO ALTERNATIVA (SEM PCS TESTE)
+
+Se não tiver PC físico para demonstrar Wake/Shutdown:
+
+1. Mostre os LOGs anteriores no terminal
+2. Explique: "Aqui vemos que o sistema enviou Magic Packet para MAC XX:XX..."
+3. Mostre o código em backend/modules/wol.py (create_magic_packet)
+4. Mostre o código em backend/modules/shutdown.py (shutdown_windows_wmi)
+5. Mostre os instaladores (instalar_cliente.ps1) e explique automação
+
+## 🎯 FECHAMENTO (30 seg)
+
+"O Sistema Skyline A3 oferece uma solução completa de automação IoT,
+integrando segurança de acesso com economia de energia. Está pronto
+para produção, com instaladores automatizados e documentação completa.
+
+Obrigado! Perguntas?"
+
+## 📁 ARQUIVOS IMPORTANTES PARA APRESENTAÇÃO
+
+Tenha abertos em abas do editor:
+- README.md → Arquitetura e visão geral
+- backend/app.py → Endpoints REST
+- frontend/js/app.js → Lógica do dashboard
+- instalar_servidor.ps1 → Automação servidor
+- instalar_cliente.ps1 → Automação cliente
+- CONFIGURACAO_WAKE_ON_LAN.txt → Guia BIOS
+
+## ⏱️ TIMING
+
+00:00 - 02:00  Introdução e contexto
+02:00 - 05:00  Arquitetura e tecnologias
+05:00 - 13:00  Demonstração prática
+13:00 - 15:00  Diferenciais e perguntas
+
+Boa sorte na apresentação! 🚀

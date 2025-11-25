@@ -363,10 +363,18 @@ async function loadDevices() {
 
 async function wakeDevice(deviceId) {
     try {
+        console.log(`[WAKE] Enviando comando para dispositivo ${deviceId}`);
         await apiRequest(`/devices/${deviceId}/wake`, { method: 'POST' });
         showNotification('Comando Wake-on-LAN enviado!', 'success');
         await loadDevices();
+        // Atualizar logs após 1 segundo para dar tempo do backend registrar
+        setTimeout(() => {
+            if (document.getElementById('logsSection').style.display !== 'none') {
+                loadLogs();
+            }
+        }, 1000);
     } catch (error) {
+        console.error('[WAKE] Erro:', error);
         showNotification('Erro ao ligar dispositivo', 'error');
     }
 }
@@ -375,10 +383,18 @@ async function shutdownDevice(deviceId) {
     if (!confirm('Deseja realmente desligar este dispositivo?')) return;
     
     try {
+        console.log(`[SHUTDOWN] Enviando comando para dispositivo ${deviceId}`);
         await apiRequest(`/devices/${deviceId}/shutdown`, { method: 'POST' });
         showNotification('Comando de desligamento enviado!', 'success');
         await loadDevices();
+        // Atualizar logs após 1 segundo para dar tempo do backend registrar
+        setTimeout(() => {
+            if (document.getElementById('logsSection').style.display !== 'none') {
+                loadLogs();
+            }
+        }, 1000);
     } catch (error) {
+        console.error('[SHUTDOWN] Erro:', error);
         showNotification('Erro ao desligar dispositivo', 'error');
     }
 }
@@ -451,30 +467,44 @@ async function deleteTurnstile(turnstileId) {
 // ===== Logs =====
 async function loadLogs() {
     try {
-        const response = await apiRequest('/logs');
+        console.log('[LOGS] Carregando eventos...');
+        const response = await apiRequest('/logs?limit=100');
         const logs = response.logs || [];
+        console.log(`[LOGS] ${logs.length} eventos recebidos:`, logs);
         
         const tbody = document.getElementById('logsTableBody');
         
         if (logs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum log registrado</td></tr>';
         } else {
-            tbody.innerHTML = logs.map(log => `
-                <tr>
-                    <td>${formatDateTime(log.timestamp)}</td>
-                    <td>${log.user_id || 'Desconhecido'}</td>
-                    <td>${log.turnstile_id || 'N/A'}</td>
-                    <td>${log.action}</td>
-                    <td>
-                        <span class="badge ${log.status === 'success' ? 'badge-success' : 'badge-danger'}">
-                            ${log.status === 'success' ? 'Sucesso' : 'Falha'}
-                        </span>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = logs.map(log => {
+                // Traduzir tipos de evento
+                let actionLabel = log.action;
+                switch(log.action) {
+                    case 'wake': actionLabel = 'Ligar (Wake-on-LAN)'; break;
+                    case 'shutdown': actionLabel = 'Desligar (Shutdown)'; break;
+                    case 'entrada': actionLabel = 'Entrada'; break;
+                    case 'saida': actionLabel = 'Saída'; break;
+                }
+                
+                return `
+                    <tr>
+                        <td>${formatDateTime(log.timestamp)}</td>
+                        <td>${log.user_id || 'Sistema'}</td>
+                        <td>${log.turnstile_id || '-'}</td>
+                        <td>${actionLabel}</td>
+                        <td>
+                            <span class="badge ${log.status === 'success' ? 'badge-success' : 'badge-danger'}">
+                                ${log.status === 'success' ? 'Sucesso' : 'Falha'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
     } catch (error) {
         console.error('Erro ao carregar logs:', error);
+        showToast('Erro ao carregar logs', 'error');
     }
 }
 

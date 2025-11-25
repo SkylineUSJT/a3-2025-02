@@ -6,9 +6,18 @@
 # pelo sistema Skyline (shutdown remoto e Wake-on-LAN).
 #
 # INSTRUÇÕES:
-# 1. Edite a linha 100 com o IP correto do servidor
-# 2. Execute como ADMINISTRADOR em cada máquina cliente
-# 3. Quando solicitado, informe o RFID do funcionário
+# 1. Execute como ADMINISTRADOR em cada máquina cliente
+# 2. Quando solicitado, informe o RFID do funcionário
+# 3. Informe o IP do servidor Skyline (ex: 192.168.18.2)
+#
+# O QUE ESTE SCRIPT FAZ:
+# - [1/7] Ativa serviço LanmanServer (compartilhamento Windows)
+# - [2/7] Cria regra de firewall para shutdown remoto
+# - [3/7] Configura descoberta de rede
+# - [4/7] Habilita PowerShell Remoting (para shutdown)
+# - [5/7] Configura Wake-on-LAN no registro do Windows
+# - [6/7] Cria usuário administrativo skyline_admin
+# - [7/7] Registra o PC no servidor Skyline
 #
 # IMPORTANTE - Wake-on-LAN:
 # Após executar este script, configure na BIOS/UEFI:
@@ -303,14 +312,32 @@ try {
     Write-Host "          INSTALAÇÃO CONCLUÍDA COM SUCESSO!" -ForegroundColor Green
     Write-Host "============================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Computador registrado:" -ForegroundColor White
-    Write-Host "  - Device ID: $($response.device_id)" -ForegroundColor Cyan
-    Write-Host "  - Hostname: $hostname" -ForegroundColor Cyan
-    Write-Host "  - Usuário (RFID): $rfid" -ForegroundColor Cyan
+    Write-Host "✓ Computador registrado no servidor:" -ForegroundColor White
+    Write-Host "    Device ID: $($response.device_id)" -ForegroundColor Cyan
+    Write-Host "    Hostname: $hostname" -ForegroundColor Cyan
+    Write-Host "    Funcionário (RFID): $rfid" -ForegroundColor Cyan
+    Write-Host "    IP: $ip" -ForegroundColor Cyan
+    Write-Host "    MAC: $mac" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "LEMBRE-SE:" -ForegroundColor Yellow
-    Write-Host "  Configure Wake-on-LAN na BIOS/UEFI" -ForegroundColor White
-    Write-Host "  (Consulte CONFIGURACAO_WAKE_ON_LAN.txt)" -ForegroundColor White
+    Write-Host "✓ Serviços configurados:" -ForegroundColor White
+    Write-Host "    • LanmanServer ativo" -ForegroundColor Gray
+    Write-Host "    • Firewall configurado (porta 445)" -ForegroundColor Gray
+    Write-Host "    • PowerShell Remoting habilitado" -ForegroundColor Gray
+    Write-Host "    • Wake-on-LAN configurado no registro" -ForegroundColor Gray
+    Write-Host "    • Usuário skyline_admin criado" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "⚠️  PRÓXIMO PASSO OBRIGATÓRIO:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "    Configure Wake-on-LAN na BIOS/UEFI:" -ForegroundColor White
+    Write-Host "    1. Reinicie o computador" -ForegroundColor Gray
+    Write-Host "    2. Entre na BIOS/UEFI (tecla DEL, F2 ou F12)" -ForegroundColor Gray
+    Write-Host "    3. Procure e HABILITE:" -ForegroundColor Gray
+    Write-Host "       - Wake on LAN / Power On by PCI-E" -ForegroundColor Gray
+    Write-Host "       - Wake on Magic Packet" -ForegroundColor Gray
+    Write-Host "    4. DESABILITE:" -ForegroundColor Gray
+    Write-Host "       - ErP Support / EuP 2013" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    Consulte CONFIGURACAO_WAKE_ON_LAN.txt para detalhes" -ForegroundColor Cyan
     Write-Host ""
 } catch {
     Write-Host ""

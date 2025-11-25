@@ -10,17 +10,14 @@ import logging
 import os
 import sys
 import hashlib
+import sqlite3
+import json
 from functools import wraps
 
 # Adiciona o diretório backend ao PYTHONPATH
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
-
-import hashlib
-import sqlite3
-import json
-from functools import wraps
 
 from backend.modules.database import Database
 from backend.modules.mqtt_client import MQTTClient
@@ -292,13 +289,27 @@ def register_exit():
 
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
-    """Lista logs de acesso"""
+    """Lista logs de acesso (eventos)"""
     try:
-        limit = request.args.get('limit', 50, type=int)
+        limit = request.args.get('limit', 100, type=int)
         logs = db.get_access_logs(limit)
+        logger.info(f"[LOGS] Retornando {len(logs)} eventos")
         return jsonify({'logs': logs}), 200
     except Exception as e:
         logger.error(f"Erro ao buscar logs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/eventos', methods=['GET'])
+def get_eventos():
+    """Lista todos os eventos do sistema"""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        eventos = db.get_eventos(limit=limit)
+        logger.info(f"[EVENTOS] Retornando {len(eventos)} eventos")
+        return jsonify({'eventos': eventos, 'total': len(eventos)}), 200
+    except Exception as e:
+        logger.error(f"Erro ao buscar eventos: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -335,18 +346,37 @@ def add_turnstile():
 def wake_device(device_id):
     """Liga um dispositivo via Wake-on-LAN"""
     try:
+        logger.info(f"[WAKE] Requisição recebida para dispositivo ID: {device_id}")
         device = db.get_device_by_id(device_id)
         if not device:
+            logger.warning(f"[WAKE] Dispositivo ID {device_id} não encontrado")
             return jsonify({'error': 'Dispositivo não encontrado'}), 404
+        
+        logger.info(f"[WAKE] Enviando Magic Packet para {device['hostname']} (MAC: {device['mac_address']}, IP: {device.get('ip_address')})")
         
         # Passa o IP do dispositivo para calcular broadcast correto
         success = wol.wake(device['mac_address'], target_ip=device.get('ip_address'))
+        
         if success:
+            # Registra evento no banco de dados
+            try:
+                db.add_evento(
+                    tipo='wake',
+                    idCatraca=None,
+                    idComputador=device_id,
+                    idFuncionario=None
+                )
+                logger.info(f"[WAKE] Evento registrado no banco de dados")
+            except Exception as e:
+                logger.warning(f"[WAKE] Erro ao registrar evento: {e}")
+            
+            logger.info(f"[WAKE] Magic Packet enviado com sucesso para {device['hostname']}")
             return jsonify({'message': 'Comando Wake-on-LAN enviado'}), 200
         else:
+            logger.error(f"[WAKE] Falha ao enviar Magic Packet para {device['hostname']}")
             return jsonify({'error': 'Falha ao enviar Wake-on-LAN'}), 500
     except Exception as e:
-        logger.error(f"Erro ao ligar dispositivo: {e}")
+        logger.error(f"[WAKE] Erro ao ligar dispositivo ID {device_id}: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -354,9 +384,13 @@ def wake_device(device_id):
 def shutdown_device_route(device_id):
     """Desliga um dispositivo"""
     try:
+        logger.info(f"[SHUTDOWN] Requisição recebida para dispositivo ID: {device_id}")
         device = db.get_device_by_id(device_id)
         if not device:
+            logger.warning(f"[SHUTDOWN] Dispositivo ID {device_id} não encontrado")
             return jsonify({'error': 'Dispositivo não encontrado'}), 404
+        
+        logger.info(f"[SHUTDOWN] Tentando desligar {device['hostname']} (IP: {device['ip_address']}, OS: {device['os_type']})")
         
         # Obter credenciais do config
         credentials = device.get('credentials', {})
@@ -366,6 +400,9 @@ def shutdown_device_route(device_id):
                 'username': shutdown_config['admin_username'],
                 'password': shutdown_config['admin_password']
             }
+            logger.info(f"[SHUTDOWN] Usando credenciais do config: {credentials['username']}")
+        else:
+            logger.warning(f"[SHUTDOWN] Nenhuma credencial configurada")
         
         success = shutdown.shutdown_device(
             ip_address=device['ip_address'],
@@ -374,11 +411,25 @@ def shutdown_device_route(device_id):
         )
         
         if success:
+            # Registra evento no banco de dados
+            try:
+                db.add_evento(
+                    tipo='shutdown',
+                    idCatraca=None,
+                    idComputador=device_id,
+                    idFuncionario=None
+                )
+                logger.info(f"[SHUTDOWN] Evento registrado no banco de dados")
+            except Exception as e:
+                logger.warning(f"[SHUTDOWN] Erro ao registrar evento: {e}")
+            
+            logger.info(f"[SHUTDOWN] Comando enviado com sucesso para {device['hostname']}")
             return jsonify({'message': 'Comando de desligamento enviado'}), 200
         else:
+            logger.error(f"[SHUTDOWN] Falha ao desligar {device['hostname']}")
             return jsonify({'error': 'Falha ao desligar dispositivo'}), 500
     except Exception as e:
-        logger.error(f"Erro ao desligar dispositivo: {e}")
+        logger.error(f"[SHUTDOWN] Erro ao desligar dispositivo ID {device_id}: {e}")
         return jsonify({'error': str(e)}), 500
 
 
